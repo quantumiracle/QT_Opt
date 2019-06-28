@@ -12,6 +12,7 @@ Note: this implementation doesn't use the expert demonstrations, but purely lear
 
 ## To run:
 `python qt_opt_v3.py --train` for training;
+
 `python qt_opt_v3.py --test` for testing;
 
 
