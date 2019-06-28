@@ -10,3 +10,8 @@ Paper: [QT-Opt: Scalable Deep Reinforcement Learning for Vision-Based Robotic Ma
 
 Note: this implementation doesn't use the expert demonstrations, but purely learning from explorations.
 
+## To run:
+`python qt_opt_v3.py --train` for training;
+`python qt_opt_v3.py --test` for testing;
+
+
