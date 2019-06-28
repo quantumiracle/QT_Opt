@@ -285,7 +285,7 @@ if __name__ == '__main__':
         action_dim = env.num_actions
         state_dim  = env.num_observations
     elif ENV == 'Pendulum':
-        env = gym.make("Pendulum-v0").unwrapped()
+        env = gym.make("Pendulum-v0").unwrapped
         action_dim = env.action_space.shape[0]
         state_dim  = env.observation_space.shape[0]
         action_range=1.
@@ -303,19 +303,26 @@ if __name__ == '__main__':
     if args.train:
         # hyper-parameters
         max_episodes  = 2000
-        max_steps   = 20
+        max_steps   = 20 if ENV ==  'Reacher' else 150  # Pendulum needs 150 steps per episode to learn well, cannot handle 20
         frame_idx   = 0
         episode_rewards = []
 
         for i_episode in range (max_episodes):
             
-            state = env.reset(SCREEN_SHOT)
+            if ENV == 'Reacher':
+                state = env.reset(SCREEN_SHOT)
+            elif ENV == 'Pendulum':
+                state =  env.reset()
             episode_reward = 0
 
             for step in range(max_steps):
                 # action = qt_opt.policy.act(state)  
                 action = qt_opt.cem_optimal_action(state)
-                next_state, reward, done, _ = env.step(action, SPARSE_REWARD, SCREEN_SHOT)
+                if ENV ==  'Reacher':
+                    next_state, reward, done, _ = env.step(action, SPARSE_REWARD, SCREEN_SHOT)
+                elif ENV ==  'Pendulum':
+                    next_state, reward, done, _ = env.step(action) 
+                    env.render()
                 episode_reward += reward
                 replay_buffer.push(state, action, reward, next_state, done)
                 state = next_state
@@ -335,19 +342,26 @@ if __name__ == '__main__':
         qt_opt.load_model(model_path)
         # hyper-parameters
         max_episodes  = 10
-        max_steps   = 20
+        max_steps   = 20 if ENV ==  'Reacher' else 150  # Pendulum needs 150 steps per episode to learn well, cannot handle 20
         frame_idx   = 0
         episode_rewards = []
 
         for i_episode in range (max_episodes):
             
-            state = env.reset(SCREEN_SHOT)
+            if ENV == 'Reacher':
+                state = env.reset(SCREEN_SHOT)
+            elif ENV == 'Pendulum':
+                state =  env.reset()
             episode_reward = 0
 
             for step in range(max_steps):
                 # action = qt_opt.policy.act(state)  
                 action = qt_opt.cem_optimal_action(state)
-                next_state, reward, done, _ = env.step(action, SPARSE_REWARD, SCREEN_SHOT)
+                if ENV ==  'Reacher':
+                    next_state, reward, done, _ = env.step(action, SPARSE_REWARD, SCREEN_SHOT)
+                elif ENV ==  'Pendulum':
+                    next_state, reward, done, _ = env.step(action)  
+                    env.render()               
                 episode_reward += reward
                 state = next_state
 
