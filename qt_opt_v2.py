@@ -250,6 +250,20 @@ class QT_Opt():
 
         return target_net
 
+    def save_model(self, path):
+        torch.save(self.qnet.state_dict(), path)
+        torch.save(self.target_qnet1.state_dict(), path)
+        torch.save(self.target_qnet2.state_dict(), path)
+
+    def load_model(self, path):
+        self.qnet.load_state_dict(torch.load(path))
+        self.target_qnet1.load_state_dict(torch.load(path))
+        self.target_qnet2.load_state_dict(torch.load(path))
+        self.qnet.eval()
+        self.target_qnet1.eval()
+        self.target_qnet2.eval()
+
+
 
 
 def plot(rewards):
