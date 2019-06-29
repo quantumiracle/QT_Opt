@@ -101,7 +101,8 @@ class CEM():
 
         
     def sample(self):
-        theta = self.mean + np.random.randn(self.theta_dim) * self.std
+        # theta = self.mean + np.random.randn(self.theta_dim) * self.std
+        theta = self.mean + np.random.normal(size=self.theta_dim) * self.std
         return theta
 
     def initialize(self, ini_mean_scale=0.0, ini_std_scale=1.0):
@@ -276,7 +277,7 @@ def plot(rewards):
 if __name__ == '__main__':
 
     # choose env
-    ENV = ['Pendulum', 'Reacher'][0]
+    ENV = ['Pendulum', 'Reacher'][1]
     if ENV == 'Reacher':
         NUM_JOINTS=2
         LINK_LENGTH=[200, 140]

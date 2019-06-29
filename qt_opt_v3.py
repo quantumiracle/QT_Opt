@@ -102,7 +102,8 @@ class CEM():
         self.std = ini_std_scale*np.ones(self.theta_dim)
         
     def sample(self):
-        theta = self.mean + np.random.randn(self.theta_dim) * self.std
+        # theta = self.mean + np.random.randn(self.theta_dim) * self.std
+        theta = self.mean + np.random.normal(size=self.theta_dim) * self.std
         return theta
 
     def sample_multi(self, n):
