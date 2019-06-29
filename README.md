@@ -5,14 +5,14 @@ Pytorch implementation of QT-Opt algorithm for vision-based robotic manipulation
 ## Description:
 Instead of using an actor network, using the cross-entropy (CE) method for optimizing the Q network in a non-gradient-based manner, which is able to handle the non-convex cases and search the global structure more efficiently in practice, especially when leveraging the expert demonstrations. 
 
-[Here]() is a notebook about CE method.
+[Here](https://github.com/quantumiracle/QT_Opt/blob/master/cem/cem_test.ipynb) is a notebook about CE method.
 
 Paper: [QT-Opt: Scalable Deep Reinforcement Learning for Vision-Based Robotic Manipulation](https://arxiv.org/abs/1806.10293)
 
 Note: this implementation doesn't use the expert demonstrations, but purely learning from explorations. The demonstrations are environment-wise, and it's straightforward to apply the demonmstrations: just add another demonstrations buffer and sample from it whenever sampling from current exploration buffer for udpating the policy
 
 ## Two Versions of Implementation:
-As CE method is very flexible in practice as shown in above [notebook](), there are at least two feasible versions of implementation for QT-Opt algorithms, and original paper didn't tell clearly about which one to apply. 
+As CE method is very flexible in practice as shown in above [notebook](https://github.com/quantumiracle/QT_Opt/blob/master/cem/cem_test.ipynb), there are at least two feasible versions of implementation for QT-Opt algorithms, and original paper didn't tell clearly about which one to apply. 
 * the first version I tried didn't work, so not shown here;
 * version 2: 
 
