@@ -11,9 +11,21 @@ Paper: [QT-Opt: Scalable Deep Reinforcement Learning for Vision-Based Robotic Ma
 
 Note: this implementation doesn't use the expert demonstrations, but purely learning from explorations.
 
+## Two Versions of Implementation:
+As CE method is very flexible in practice as shown in above [notebook](), there are at least two feasible versions of implementation for QT-Opt algorithms, and original paper didn't tell clearly about which one to apply. 
+* the first version I tried didn't work, so not shown here;
+* version 2: 
+`qt_opt_v2.py` : the Gaussian distribution in CE method is fitted on the policy weights W, and action A = W * S + B, where S is state and B is bias. And the criteria for CE method is Q(S,A). This version is more usual to see in general CE method implementation, but could only be applied for low-dimensional cases as the dimension of weights are basically dimension of S multiplied by dimension of S.
+* version 3: 
+`qt_opt_v3.py` : the Gaussian distribution in CE method is fitted on the action A directly. And the criteria for CE method is Q(S,A). This version has advantages in the dimension of the fitted Gaussian distribution, which is the dimension of the action instead of the weights. And the dimension of the weights could be large for like visual-based input images as states S. Therefore, this version is more likely to be the one applied in original QT-Opt paper.
+
+
 ## To run:
+For example for `qt_opt_v3.py`:
 `python qt_opt_v3.py --train` for training;
 
 `python qt_opt_v3.py --test` for testing;
+
+To use `qt_opt_v2.py` just change the name correspondingly.
 
 
