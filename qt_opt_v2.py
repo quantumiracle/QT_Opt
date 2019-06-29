@@ -6,9 +6,7 @@ QT-Opt: https://arxiv.org/pdf/1806.10293.pdf
 CEM: https://www.youtube.com/watch?v=tNAIHEse7Ms
 
 Pytorch implementation
-CEM for fitting the action directly, action is not directly dependent on state.
-Actually CEM could used be fitting any part (the variable x or the variable y that parameterizes the variable x):
-Q(s,a), a=w*s+b, CEM could fit 'Q' or 'a' or 'w', all possible and theoretically feasible. 
+CEM for fitting the weights: w * s + b = a
 '''
 
 
@@ -33,6 +31,10 @@ from matplotlib import animation
 from IPython.display import display
 from reacher import Reacher
 
+
+# use_cuda = torch.cuda.is_available()
+# device   = torch.device("cuda" if use_cuda else "cpu")
+# print(device)
 
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller.')
 parser.add_argument('--train', dest='train', action='store_true', default=False)
@@ -90,20 +92,21 @@ class ContinuousActionLinearPolicy(object):
 
 
 class CEM():
-    ''' 
-    cross-entropy method, as optimization of the action policy 
+    ''' cross-entropy method, as optimization of the action policy 
+    the policy weights theta are stored in this CEM class instead of in the policy
     '''
     def __init__(self, theta_dim, ini_mean_scale=0.0, ini_std_scale=1.0):
         self.theta_dim = theta_dim
         self.initialize(ini_mean_scale=ini_mean_scale, ini_std_scale=ini_std_scale)
 
-    def initialize(self, ini_mean_scale=0.0, ini_std_scale=1.0):
-        self.mean = ini_mean_scale*np.ones(self.theta_dim)
-        self.std = ini_std_scale*np.ones(self.theta_dim)
         
     def sample(self):
         theta = self.mean + np.random.randn(self.theta_dim) * self.std
         return theta
+
+    def initialize(self, ini_mean_scale=0.0, ini_std_scale=1.0):
+        self.mean = ini_mean_scale*np.ones(self.theta_dim)
+        self.std = ini_std_scale*np.ones(self.theta_dim)
 
     def sample_multi(self, n):
         theta_list=[]
@@ -115,10 +118,12 @@ class CEM():
     def update(self, selected_samples):
         self.mean = np.mean(selected_samples, axis = 0)
         # print('mean: ', self.mean)
-        self.std = np.std(selected_samples, axis = 0)  # plus the entropy offset, or else easily get 0 std
-        # print('std: ', self.std)
+        self.std = np.std(selected_samples, axis = 0) # plus the entropy offset, or else easily get 0 std
+        # print('mean std: ', np.mean(self.std))
 
         return self.mean, self.std
+
+
 
 
 class QNetwork(nn.Module):
@@ -140,7 +145,7 @@ class QNetwork(nn.Module):
         return x
 
 class QT_Opt():
-    def __init__(self, replay_buffer, hidden_dim, q_lr=3e-4, cem_update_itr=2, select_num=6, num_samples=64):
+    def __init__(self, replay_buffer, hidden_dim, q_lr=3e-4, cem_update_itr=4, select_num=6, num_samples=64):
         self.num_samples = num_samples
         self.select_num = select_num
         self.cem_update_itr = cem_update_itr
@@ -148,7 +153,9 @@ class QT_Opt():
         self.qnet = QNetwork(state_dim+action_dim, hidden_dim).to(device) # gpu
         self.target_qnet1 = QNetwork(state_dim+action_dim, hidden_dim).to(device)
         self.target_qnet2 = QNetwork(state_dim+action_dim, hidden_dim).to(device)
-        self.cem = CEM(theta_dim = action_dim)  # cross-entropy method for updating
+        self.cem = CEM(theta_dim = (state_dim + 1) * action_dim)  # cross-entropy method for updating
+        theta = self.cem.sample()
+        self.policy = ContinuousActionLinearPolicy(theta, state_dim, action_dim)
 
         self.q_optimizer = optim.Adam(self.qnet.parameters(), lr=q_lr)
         self.step_cnt = 0
@@ -166,17 +173,18 @@ class QT_Opt():
 
         predict_q = self.qnet(state_, action) # predicted Q(s,a) value
 
-        # get argmax_a' from the CEM for the target Q(s', a')
+        # get argmax_a' from the CEM for the target Q(s', a'), together with updating the CEM stored weights
         new_next_action = []
-        for i in range(batch_size):      # batch of states, use them one by one, to prevent the lack of memory
+        for i in range(batch_size):      # batch of states, use them one by one
             new_next_action.append(self.cem_optimal_action(next_state[i]))
+
         new_next_action=torch.FloatTensor(new_next_action).to(device)
 
         target_q_min = torch.min(self.target_qnet1(next_state_, new_next_action), self.target_qnet2(next_state_, new_next_action))
         target_q = reward + (1-done)*gamma*target_q_min
 
         q_loss = ((predict_q - target_q.detach())**2).mean()  # MSE loss, note that original paper uses cross-entropy loss
-        print(q_loss)
+        print('Q Loss: ',q_loss)
         self.q_optimizer.zero_grad()
         q_loss.backward()
         self.q_optimizer.step()
@@ -187,21 +195,41 @@ class QT_Opt():
         self.target_qnet2=self.target_delayed_update(self.qnet, self.target_qnet2, update_delay)
     
 
-
     def cem_optimal_action(self, state):
-        ''' evaluate action wrt Q(s,a) to select the optimal using CEM '''
-        cuda_states = torch.FloatTensor(np.vstack([state]*self.num_samples)).to(device)
-        self.cem.initialize() # every time use a new cem, cem is only for deriving the argmax_a'
+        ''' evaluate action wrt Q(s,a) to select the optimal using CEM
+        return the only one largest, very gready
+        '''
+        cuda_state = torch.FloatTensor(state).to(device)
+
+        ''' the following line is critical:
+        every time use a new/initialized cem, and cem is only for deriving the argmax_a', 
+        but not for storing the weights of the policy.
+        Without this line, the Q-network cannot converge, the loss will goes to infinity through time.
+        I think the reason is that if you try to use the cem (gaussian distribution of policy weights) fitted 
+        to the last state for the next state, it will generate samples mismatched to the global optimum for the 
+        current state, which will lead to a local optimum for current state after cem iterations. And there may be
+        several different local optimum for a similar state using cem from different last state, which will cause
+        the optimal Q-value cannot be learned and even have a divergent loss for Q learning.
+        '''
+        self.cem.initialize()  # the critical line
         for itr in range(self.cem_update_itr):
-            actions = self.cem.sample_multi(self.num_samples)
-            q_values = self.target_qnet1(cuda_states, torch.FloatTensor(actions).to(device)).detach().cpu().numpy().reshape(-1) # 2 dim to 1 dim
-            max_idx=q_values.argsort()[-1]  # select one maximal q
-            idx = q_values.argsort()[-int(self.select_num):]  # select top maximum q
-            selected_actions = actions[idx]
-            _,_=self.cem.update(selected_actions)
-        optimal_action = actions[max_idx]
-        return optimal_action
- 
+            q_values=[]
+            theta_list = self.cem.sample_multi(self.num_samples)
+            # print(theta_list)
+            for j in range(self.num_samples):
+                self.policy.update(theta_list[j])
+                one_action = torch.FloatTensor(self.policy.act(state)).to(device)
+                # print(one_action)
+                q_values.append( self.target_qnet1(cuda_state.unsqueeze(0), one_action).detach().cpu().numpy()[0][0]) # 2 dim to scalar
+            idx=np.array(q_values).argsort()[-int(self.select_num):]  # select maximum q
+            max_idx=np.array(q_values).argsort()[-1]  # select maximal one q
+            selected_theta = theta_list[idx]
+            mean, _= self.cem.update(selected_theta)  # mean as the theta for argmax_a'
+            self.policy.update(mean)
+        max_theta=theta_list[max_idx]
+        self.policy.update(max_theta)
+        action = self.policy.act(state)[0] # [0]: 2 dim -> 1 dim
+        return action
 
     def target_soft_update(self, net, target_net, soft_tau):
         ''' Soft update the target net '''
@@ -222,20 +250,6 @@ class QT_Opt():
 
         return target_net
 
-    def save_model(self, path):
-        torch.save(self.qnet.state_dict(), path)
-        torch.save(self.target_qnet1.state_dict(), path)
-        torch.save(self.target_qnet2.state_dict(), path)
-
-    def load_model(self, path):
-        self.qnet.load_state_dict(torch.load(path))
-        self.target_qnet1.load_state_dict(torch.load(path))
-        self.target_qnet2.load_state_dict(torch.load(path))
-        self.qnet.eval()
-        self.target_qnet1.eval()
-        self.target_qnet2.eval()
-
-
 
 
 def plot(rewards):
@@ -243,9 +257,8 @@ def plot(rewards):
     plt.figure(figsize=(20,5))
     # plt.subplot(131)
     plt.plot(rewards)
-    plt.savefig('qt_opt_v3.png')
+    plt.savefig('qt_opt_v2.png')
     # plt.show()
-
 if __name__ == '__main__':
 
     # choose env
@@ -351,4 +364,5 @@ if __name__ == '__main__':
             # plot(episode_rewards)
             print('Episode: {}  | Reward:  {}'.format(i_episode, episode_reward))
     
+        
         
