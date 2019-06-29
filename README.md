@@ -34,4 +34,15 @@ For example to use `qt_opt_v3.py`:
 
 To use `qt_opt_v2.py` just change the name correspondingly.
 
+## Results:
+* Learning performance for `qt_opt_v2.py` on Reacher environment:
+<p align="center">
+<img src="https://github.com/quantumiracle/QT_Opt/blob/master/image/qt_opt_v2.png" width="90%">
+</p>
+
+* Learning performance for `qt_opt_v3.py` on Reacher environment:
+<p align="center">
+<img src="https://github.com/quantumiracle/QT_Opt/blob/master/image/qt_opt_v3_reacher20.png" width="90%">
+</p>
+
 
