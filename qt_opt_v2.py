@@ -302,7 +302,7 @@ if __name__ == '__main__':
 
     hidden_dim = 512
     batch_size=100
-    model_path = './qt_opt_model/model3'
+    model_path = './qt_opt_model/model2'
 
     replay_buffer_size = 5e5
     replay_buffer = ReplayBuffer(replay_buffer_size)
@@ -331,7 +331,7 @@ if __name__ == '__main__':
                     next_state, reward, done, _ = env.step(action, SPARSE_REWARD, SCREEN_SHOT)
                 elif ENV ==  'Pendulum':
                     next_state, reward, done, _ = env.step(action) 
-                    env.render()
+                    # env.render()
                 episode_reward += reward
                 replay_buffer.push(state, action, reward, next_state, done)
                 state = next_state
